@@ -1,20 +1,22 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  import type { Player } from '../lib/types';
+  import { isLegend, type Player } from '../lib/types';
 
   export let player: Player;
   export let selected = false;
   export let disabled = false;
+  export let hideOverall = false;
 
   const dispatch = createEventDispatcher<{ toggle: Player }>();
 </script>
 
 <button
   class:selected
+  class:legend={isLegend(player)}
   class="player-card"
   type="button"
   aria-pressed={selected}
-  aria-label={`${selected ? 'Remover' : 'Adicionar'} ${player.name}, ${player.position}`}
+  aria-label={`${selected ? 'Desmarcar' : 'Selecionar'} ${player.name}, ${player.position}`}
   {disabled}
   on:click={() => dispatch('toggle', player)}
 >
@@ -23,7 +25,7 @@
     <strong>{player.name}</strong>
     <small>{player.special}</small>
   </span>
-  <span class="overall">{player.overall}</span>
+  <span class="overall" class:hidden={hideOverall}>{hideOverall ? '?' : player.overall}</span>
 </button>
 
 <style>
@@ -53,10 +55,14 @@
     background: color-mix(in srgb, var(--mint) 12%, var(--panel-2));
   }
 
+  .player-card.legend { border-color: #d6a928; box-shadow: inset 0 0 0 1px rgba(250, 204, 21, .2); }
+  .player-card.legend:hover:not(:disabled), .player-card.legend:focus-visible { border-color: #facc15; }
+
   .player-card:disabled { cursor: not-allowed; opacity: 0.5; }
   .position { font: 800 0.75rem/1 var(--font-display); color: var(--orange); }
   .identity { display: grid; gap: 0.2rem; min-width: 0; }
   .identity strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .identity small { color: var(--muted); }
   .overall { font: 900 1.2rem/1 var(--font-display); }
+  .overall.hidden { color: var(--muted); }
 </style>

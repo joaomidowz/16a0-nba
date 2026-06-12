@@ -12,7 +12,9 @@
     { id: 'random', icon: '01', description: { pt: 'Quatro adversários de qualquer era.', en: 'Four opponents from any era.' } },
     { id: 'champions', icon: '02', description: { pt: 'Somente equipes que levantaram o troféu.', en: 'Only teams that lifted the trophy.' } },
     { id: 'underdog', icon: '03', description: { pt: 'Elenco tier B contra gigantes históricos.', en: 'Tier B roster against historic giants.' } },
-    { id: 'daily', icon: '04', description: { pt: 'A mesma run para todos hoje.', en: 'The same run for everyone today.' } },
+    { id: 'arcade', icon: '04', description: { pt: 'Power-ups e decisões extras entre séries.', en: 'Power-ups and extra decisions between series.' } },
+    { id: 'hardcore', icon: '05', description: { pt: 'Atributos ocultos, rivais tier S e apenas um pulo.', en: 'Hidden ratings, tier S rivals and a single skip.' } },
+    { id: 'daily', icon: '06', description: { pt: 'A mesma run para todos hoje.', en: 'The same run for everyone today.' } },
   ];
 </script>
 

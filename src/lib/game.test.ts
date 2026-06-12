@@ -1,6 +1,6 @@
 import dataset from '../data/dataset_16a0.json';
 import { describe, expect, it } from 'vitest';
-import { calculateRatings, createRunSetup, simulateSeries } from './game';
+import { applyPowerUp, calculateRatings, createRunSetup, simulateSeries } from './game';
 import type { Dataset } from './types';
 
 const data = dataset as Dataset;
@@ -28,5 +28,22 @@ describe('game engine', () => {
     expect(first.userWins === 4 || first.opponentWins === 4).toBe(true);
     expect(first.games.length).toBeGreaterThanOrEqual(4);
     expect(first.games.length).toBeLessThanOrEqual(7);
+    expect(first.opponentPlayers).toHaveLength(6);
+    expect(first.games[0].opponentBoxScore).toHaveLength(6);
+  });
+
+  it('uses only tier S opponents in hardcore mode', () => {
+    const setup = createRunSetup(data, 'hard-mode', 'hardcore');
+    expect(setup.opponents).toHaveLength(4);
+    expect(setup.opponents.every((team) => team.tier === 'S')).toBe(true);
+  });
+
+  it('applies arcade power-ups without mutating the source roster', () => {
+    const setup = createRunSetup(data, 'arcade-mode', 'arcade');
+    const roster = setup.draftTeams.flatMap((team) => data.players.filter((player) => player.teamId === team.id)).slice(0, 6);
+    const defeated = data.players.filter((player) => player.teamId === setup.opponents[0].id);
+    expect(applyPowerUp(roster, defeated, 'balanced').boost).toEqual({ attack: 2, defense: 2, clutch: 0 });
+    expect(applyPowerUp(roster, defeated, 'clutch').boost.clutch).toBe(5);
+    expect(roster).toHaveLength(6);
   });
 });

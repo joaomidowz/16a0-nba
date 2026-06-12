@@ -17,7 +17,7 @@ npm run validate
 
 ## Escopo implementado
 
-- modos aleatorio, champions only, underdog e desafio diario
+- modos aleatorio, champions only, underdog, Arcade, Playoffs Hardcore e desafio diario
 - seed e simulacao reproduziveis na URL com `s`, `m`, `auto` e `speed`
 - dataset carregado sob demanda
 - draft sequencial com uma equipe por vez, pular, voltar e resumo parcial
@@ -30,10 +30,13 @@ npm run validate
 - simulacao automatica da run completa ou manual jogo a jogo
 - velocidade lenta, normal ou rapida
 - controles persistentes para trocar modo e velocidade durante a partida
-- pausa manual ao fim de cada quarto e botao para pular a animacao
+- modo manual por jogo, com pausa/retomada livre durante a animacao
 - quatro series em melhor de sete
 - placar animado por quarto e box score revelado apenas no fim do jogo
-- recompensas entre series
+- power-ups opcionais e limitados no modo Arcade
+- atributos ocultos, adversarios tier S e um unico pulo no modo Hardcore
+- abas compactas de placar, quadra tatica e box score dos dois times
+- elencos e medias estatisticas dos adversarios no resultado final
 - resumo final, link compartilhavel e imagem PNG
 - interface responsiva, navegacao por teclado e seletor PT/EN inicial
 

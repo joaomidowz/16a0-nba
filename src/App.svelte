@@ -5,9 +5,9 @@
   import Draft from './screens/Draft.svelte';
   import Result from './screens/Result.svelte';
   import SimulationSetup from './screens/SimulationSetup.svelte';
-  import { applyReward, createRunSetup, simulateSeries, summarizeRun } from './lib/game';
+  import { applyPowerUp, createRunSetup, emptyBoost, simulateSeries, summarizeRun } from './lib/game';
   import type { Locale } from './lib/i18n';
-  import type { Dataset, GameMode, Lineup, Player, RunSetup, Screen, SeriesResult, SimulationMode, SimulationSpeed } from './lib/types';
+  import type { Dataset, GameMode, Lineup, Player, PowerUp, RunBoost, RunSetup, Screen, SeriesResult, SimulationMode, SimulationSpeed } from './lib/types';
 
   const emptyLineup = (): Lineup => ({ PG: null, SG: null, SF: null, PF: null, C: null, Six: null });
 
@@ -21,9 +21,14 @@
   let currentSeries: SeriesResult | null = null;
   let simulationMode: SimulationMode = 'manual';
   let simulationSpeed: SimulationSpeed = 50;
+  let rewardsEnabled = false;
+  let powerUpsUsed = 0;
+  let animationSkipsRemaining = 0;
+  let pendingBoost: RunBoost = emptyBoost();
   let loading = false;
 
   $: summary = setup ? summarizeRun(seriesResults, roster) : null;
+  $: gameLineup = ({ PG: roster[0] ?? null, SG: roster[1] ?? null, SF: roster[2] ?? null, PF: roster[3] ?? null, C: roster[4] ?? null, Six: roster[5] ?? null });
 
   async function loadDataset(): Promise<Dataset> {
     if (dataset) return dataset;
@@ -48,6 +53,10 @@
     draftLineup = emptyLineup();
     seriesResults = [];
     currentSeries = null;
+    rewardsEnabled = false;
+    powerUpsUsed = 0;
+    animationSkipsRemaining = mode === 'hardcore' ? 1 : Number.POSITIVE_INFINITY;
+    pendingBoost = emptyBoost();
     const url = new URL(window.location.href);
     url.searchParams.set('s', seed);
     url.searchParams.set('m', mode);
@@ -56,9 +65,9 @@
     loading = false;
   }
 
-  function playSeries(index: number, defenseBonus = 0) {
+  function playSeries(index: number, boost: RunBoost = emptyBoost()) {
     if (!dataset || !setup) return;
-    currentSeries = simulateSeries(roster, dataset, setup.opponents[index], setup.seed, index, defenseBonus);
+    currentSeries = simulateSeries(roster, dataset, setup.opponents[index], setup.seed, index, boost);
     seriesResults = [...seriesResults, currentSeries];
     screen = 'game';
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -74,16 +83,20 @@
     screen = 'simulation-setup';
   }
 
-  function startSimulation(mode: SimulationMode, speed: SimulationSpeed) {
+  function startSimulation(mode: SimulationMode, speed: SimulationSpeed, enableRewards: boolean) {
     simulationMode = mode;
     simulationSpeed = speed;
+    rewardsEnabled = setup?.mode === 'arcade' && enableRewards;
+    powerUpsUsed = 0;
+    pendingBoost = emptyBoost();
     const url = new URL(window.location.href);
     url.searchParams.set('auto', mode === 'automatic' ? '1' : '0');
     url.searchParams.set('speed', String(speed));
+    url.searchParams.set('rewards', rewardsEnabled ? '1' : '0');
     history.replaceState({}, '', url);
 
     seriesResults = [];
-    playSeries(0);
+    playSeries(0, pendingBoost);
   }
 
   function updateSimulationConfig(mode: SimulationMode, speed: SimulationSpeed) {
@@ -101,15 +114,33 @@
       showResult();
       return;
     }
-    takeReward('training');
+    if (rewardsEnabled && powerUpsUsed < 2) takePowerUp('balanced');
+    else continueRun();
   }
 
-  function takeReward(reward: 'swap' | 'training' | 'defense') {
+  function continueRun() {
+    if (!setup) return;
+    const nextIndex = seriesResults.length;
+    if (nextIndex >= setup.opponents.length) {
+      showResult();
+      return;
+    }
+    playSeries(nextIndex, emptyBoost());
+  }
+
+  function takePowerUp(powerUp: PowerUp) {
     if (!dataset || !currentSeries || !setup) return;
     const defeatedPlayers = dataset.players.filter((player) => player.teamId === currentSeries!.opponent.id);
-    roster = applyReward(roster, defeatedPlayers, reward);
+    const applied = applyPowerUp(roster, defeatedPlayers, powerUp);
+    roster = applied.roster;
+    pendingBoost = applied.boost;
+    powerUpsUsed += 1;
     const nextIndex = seriesResults.length;
-    playSeries(nextIndex, reward === 'defense' ? 2 : 0);
+    playSeries(nextIndex, pendingBoost);
+  }
+
+  function useAnimationSkip() {
+    if (setup?.mode === 'hardcore') animationSkipsRemaining = Math.max(0, animationSkipsRemaining - 1);
   }
 
   function showResult() {
@@ -128,6 +159,10 @@
     currentSeries = null;
     simulationMode = 'manual';
     simulationSpeed = 50;
+    rewardsEnabled = false;
+    powerUpsUsed = 0;
+    animationSkipsRemaining = 0;
+    pendingBoost = emptyBoost();
     screen = 'home';
   }
 
@@ -139,7 +174,7 @@
     const speed = Number(params.get('speed'));
     if (automatic === '1' || automatic === '0') simulationMode = automatic === '1' ? 'automatic' : 'manual';
     if (speed >= 25 && speed <= 500) simulationSpeed = speed;
-    if (seed && mode && ['random', 'champions', 'underdog', 'daily'].includes(mode)) startRun(mode, seed);
+    if (seed && mode && ['random', 'champions', 'underdog', 'arcade', 'hardcore', 'daily'].includes(mode)) startRun(mode, seed);
   });
 </script>
 
@@ -159,12 +194,12 @@
   {:else if screen === 'draft' && dataset && setup}
     <Draft {dataset} {setup} initialLineup={draftLineup} on:confirm={(event) => confirmLineup(event.detail)} on:back={restart} />
   {:else if screen === 'simulation-setup'}
-    <SimulationSetup {roster} initialMode={simulationMode} initialSpeed={simulationSpeed} on:start={(event) => startSimulation(event.detail.mode, event.detail.speed)} on:back={() => screen = 'draft'} />
+    <SimulationSetup {roster} gameMode={setup?.mode ?? 'random'} initialMode={simulationMode} initialSpeed={simulationSpeed} on:start={(event) => startSimulation(event.detail.mode, event.detail.speed, event.detail.rewardsEnabled)} on:back={() => screen = 'draft'} />
   {:else if screen === 'game' && currentSeries && setup}
     {#key currentSeries.opponent.id}
-      <Game series={currentSeries} round={seriesResults.length} mode={simulationMode} speed={simulationSpeed} isFinalRound={seriesResults.length === setup.opponents.length} on:config={(event) => updateSimulationConfig(event.detail.mode, event.detail.speed)} on:autoContinue={automaticContinue} on:reward={(event) => takeReward(event.detail)} on:finish={showResult} />
+      <Game series={currentSeries} lineup={gameLineup} gameMode={setup.mode} round={seriesResults.length} mode={simulationMode} speed={simulationSpeed} isFinalRound={seriesResults.length === setup.opponents.length} {rewardsEnabled} powerUpsRemaining={Math.max(0, 2 - powerUpsUsed)} {animationSkipsRemaining} on:config={(event) => updateSimulationConfig(event.detail.mode, event.detail.speed)} on:autoContinue={automaticContinue} on:continue={continueRun} on:powerUp={(event) => takePowerUp(event.detail)} on:skipUsed={useAnimationSkip} on:finish={showResult} />
     {/key}
   {:else if screen === 'result' && setup && summary}
-    <Result {setup} series={seriesResults} {summary} {simulationMode} {simulationSpeed} on:restart={restart} />
+    <Result {setup} series={seriesResults} {summary} {roster} {simulationMode} {simulationSpeed} on:restart={restart} />
   {/if}
 </div>

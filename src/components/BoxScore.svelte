@@ -1,14 +1,15 @@
 <script lang="ts">
   import type { PlayerBoxScore } from '../lib/types';
   export let rows: PlayerBoxScore[] = [];
+  export let hideRating = false;
 </script>
 
 <div class="table-wrap">
   <table>
-    <thead><tr><th>Jogador</th><th>PTS</th><th>REB</th><th>AST</th><th>STL</th><th>BLK</th><th>NOTA</th></tr></thead>
+    <thead><tr><th>Jogador</th><th>PTS</th><th>REB</th><th>AST</th><th>STL</th><th>BLK</th>{#if !hideRating}<th>NOTA</th>{/if}</tr></thead>
     <tbody>
       {#each rows as row}
-        <tr><td>{row.name}</td><td>{row.points}</td><td>{row.rebounds}</td><td>{row.assists}</td><td>{row.steals}</td><td>{row.blocks}</td><td><strong>{row.rating}</strong></td></tr>
+        <tr><td>{row.name}</td><td>{row.points}</td><td>{row.rebounds}</td><td>{row.assists}</td><td>{row.steals}</td><td>{row.blocks}</td>{#if !hideRating}<td><strong>{row.rating}</strong></td>{/if}</tr>
       {/each}
     </tbody>
   </table>

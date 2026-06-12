@@ -1,10 +1,17 @@
 export type Position = 'PG' | 'SG' | 'SF' | 'PF' | 'C';
 export type LineupSlot = Position | 'Six';
 export type Tier = 'S' | 'A' | 'B';
-export type GameMode = 'random' | 'champions' | 'underdog' | 'daily';
+export type GameMode = 'random' | 'champions' | 'underdog' | 'arcade' | 'hardcore' | 'daily';
 export type SimulationMode = 'automatic' | 'manual';
 export type SimulationSpeed = number;
+export type PowerUp = 'swap' | 'balanced' | 'clutch';
 export type Screen = 'home' | 'draft' | 'simulation-setup' | 'game' | 'result';
+
+export interface RunBoost {
+  attack: number;
+  defense: number;
+  clutch: number;
+}
 
 export interface Team {
   id: string;
@@ -26,6 +33,10 @@ export interface Player {
   clutch: number;
   iq: number;
   special: string;
+}
+
+export function isLegend(player: Player): boolean {
+  return player.overall >= 95;
 }
 
 export type Lineup = Record<LineupSlot, Player | null>;
@@ -70,10 +81,12 @@ export interface GameResult {
   opponentScore: number;
   winner: 'user' | 'opponent';
   boxScore: PlayerBoxScore[];
+  opponentBoxScore: PlayerBoxScore[];
 }
 
 export interface SeriesResult {
   opponent: Team;
+  opponentPlayers: Player[];
   userWins: number;
   opponentWins: number;
   games: GameResult[];

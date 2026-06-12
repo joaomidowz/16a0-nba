@@ -5,7 +5,9 @@ import type {
   GameResult,
   Player,
   PlayerBoxScore,
+  PowerUp,
   Ratings,
+  RunBoost,
   RunSetup,
   RunSummary,
   SeriesResult,
@@ -14,15 +16,18 @@ import type {
 
 const tierBonus = { S: 4, A: 1.5, B: -1.5 } as const;
 
+export const emptyBoost = (): RunBoost => ({ attack: 0, defense: 0, clutch: 0 });
+
 function average(players: Player[], field: keyof Pick<Player, 'overall' | 'attack' | 'defense' | 'assist' | 'clutch' | 'iq'>): number {
   return players.reduce((sum, player) => sum + player[field], 0) / players.length;
 }
 
 function specialCount(players: Player[], special: string): number {
-  return players.filter((player) => player.special === special).length;
+  const normalized = special.replace(/[‑–—]/g, '-');
+  return players.filter((player) => player.special.replace(/[‑–—]/g, '-') === normalized).length;
 }
 
-export function calculateRatings(players: Player[], fourthQuarter = false, temporaryDefense = 0): Ratings {
+export function calculateRatings(players: Player[], fourthQuarter = false, boost: RunBoost = emptyBoost()): Ratings {
   if (players.length === 0) {
     return { overall: 0, attack: 0, defense: 0, assist: 0, clutch: 0, iq: 0, total: 0, specials: [] };
   }
@@ -33,14 +38,15 @@ export function calculateRatings(players: Player[], fourthQuarter = false, tempo
     + specialCount(players, 'Sharpshooter')
     + specialCount(players, 'Slasher')
     + specialCount(players, 'Post Dominator')
+    + boost.attack
     + (fourthQuarter ? specialCount(players, 'Clutch Killer') * 3 : 0);
   const defense = average(players, 'defense')
     + specialCount(players, 'Rim Protector') * 3
     + specialCount(players, 'Lockdown Defender') * 2.5
     + specialCount(players, 'Two-Way Star')
-    + temporaryDefense;
+    + boost.defense;
   const assist = average(players, 'assist') + specialCount(players, 'Floor General') * 2;
-  const clutch = average(players, 'clutch') + specialCount(players, 'Playoff Riser') * 1.5;
+  const clutch = average(players, 'clutch') + specialCount(players, 'Playoff Riser') * 1.5 + boost.clutch;
   const iq = average(players, 'iq') + specialCount(players, 'Veteran IQ') * 2;
   const total = attack * 0.35 + defense * 0.25 + assist * 0.15 + clutch * 0.15 + iq * 0.1;
 
@@ -63,6 +69,7 @@ function teamPool(dataset: Dataset, mode: GameMode): Team[] {
   if (mode === 'underdog') {
     return dataset.teams.filter((team) => team.tier === 'S' || team.tier === 'A');
   }
+  if (mode === 'hardcore') return dataset.teams.filter((team) => team.tier === 'S');
   return dataset.teams;
 }
 
@@ -100,11 +107,11 @@ function simulateGame(
   opponent: Team,
   game: number,
   random: () => number,
-  temporaryDefense: number,
+  boost: RunBoost,
 ): GameResult {
   const home: 'user' | 'opponent' = game % 2 === 0 ? 'user' : 'opponent';
   const quarters = Array.from({ length: 4 }, (_, quarterIndex) => {
-    const userRatings = calculateRatings(roster, quarterIndex === 3, temporaryDefense);
+    const userRatings = calculateRatings(roster, quarterIndex === 3, boost);
     const opponentRatings = calculateRatings(opponentPlayers, quarterIndex === 3);
     const homeEdge = home === 'user' ? 1.5 : -1.5;
     const matchup = (userRatings.attack - opponentRatings.defense) * 0.08 + (userRatings.total - opponentRatings.total) * 0.11;
@@ -129,6 +136,7 @@ function simulateGame(
     opponentScore,
     winner: userScore > opponentScore ? 'user' : 'opponent',
     boxScore: buildBoxScore(roster, userScore, random),
+    opponentBoxScore: buildBoxScore(opponentPlayers, opponentScore, random),
   };
 }
 
@@ -138,7 +146,7 @@ export function simulateSeries(
   opponent: Team,
   seed: string,
   seriesIndex: number,
-  temporaryDefense = 0,
+  boost: RunBoost = emptyBoost(),
 ): SeriesResult {
   const random = createRandom(`${seed}:series:${seriesIndex}`);
   const opponentPlayers = dataset.players.filter((player) => player.teamId === opponent.id);
@@ -147,31 +155,28 @@ export function simulateSeries(
   let opponentWins = 0;
 
   while (userWins < 4 && opponentWins < 4) {
-    const result = simulateGame(roster, opponentPlayers, opponent, games.length + 1, random, temporaryDefense);
+    const result = simulateGame(roster, opponentPlayers, opponent, games.length + 1, random, boost);
     games.push(result);
     if (result.winner === 'user') userWins += 1;
     else opponentWins += 1;
   }
 
-  return { opponent, userWins, opponentWins, games, won: userWins === 4 };
+  return { opponent, opponentPlayers, userWins, opponentWins, games, won: userWins === 4 };
 }
 
-export function applyReward(roster: Player[], defeatedPlayers: Player[], reward: 'swap' | 'training' | 'defense'): Player[] {
-  if (reward === 'defense') return roster;
-  if (reward === 'training') {
-    const weakest = [...roster].sort((a, b) => a.overall - b.overall)[0];
-    return roster.map((player) => player.id === weakest.id
-      ? { ...player, overall: Math.min(99, player.overall + 2), attack: Math.min(99, player.attack + 2), defense: Math.min(99, player.defense + 2) }
-      : player);
-  }
-
+export function applyPowerUp(roster: Player[], defeatedPlayers: Player[], powerUp: PowerUp): { roster: Player[]; boost: RunBoost } {
+  if (powerUp === 'balanced') return { roster, boost: { attack: 2, defense: 2, clutch: 0 } };
+  if (powerUp === 'clutch') return { roster, boost: { attack: 0, defense: 0, clutch: 5 } };
   const recruit = [...defeatedPlayers].sort((a, b) => b.overall - a.overall)[0];
   const samePosition = roster
     .map((player, index) => ({ player, index }))
     .filter(({ player }) => player.position === recruit.position)
     .sort((a, b) => a.player.overall - b.player.overall)[0];
   const replaceIndex = samePosition?.index ?? [...roster].map((player, index) => ({ player, index })).sort((a, b) => a.player.overall - b.player.overall)[0].index;
-  return roster.map((player, index) => index === replaceIndex ? recruit : player);
+  return {
+    roster: roster.map((player, index) => index === replaceIndex ? recruit : player),
+    boost: emptyBoost(),
+  };
 }
 
 export function summarizeRun(series: SeriesResult[], roster: Player[]): RunSummary {
@@ -189,6 +194,7 @@ export function summarizeRun(series: SeriesResult[], roster: Player[]): RunSumma
     }))
     .sort((a, b) => b.rating - a.rating)[0] ?? null;
   const margins = games.map((game) => Math.abs(game.userScore - game.opponentScore));
+  const winningMargins = games.filter((game) => game.winner === 'user').map((game) => game.userScore - game.opponentScore);
   const champion = series.length === 4 && series.every((item) => item.won);
   const verdict = champion
     ? losses === 0 ? 'Campanha perfeita' : losses <= 4 ? 'Campeão convincente' : 'Campeão sofrido'
@@ -200,7 +206,7 @@ export function summarizeRun(series: SeriesResult[], roster: Player[]): RunSumma
     losses,
     mvp,
     averagePoints: games.length ? Number((games.reduce((sum, game) => sum + game.userScore, 0) / games.length).toFixed(1)) : 0,
-    biggestWin: games.length ? Math.max(...games.map((game) => game.userScore - game.opponentScore)) : 0,
+    biggestWin: winningMargins.length ? Math.max(...winningMargins) : 0,
     closestGame: margins.length ? Math.min(...margins) : 0,
     clutchPlayer: [...roster].sort((a, b) => b.clutch - a.clutch)[0] ?? null,
     verdict,

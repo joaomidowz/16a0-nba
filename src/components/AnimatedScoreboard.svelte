@@ -1,10 +1,9 @@
 <script lang="ts">
   import { createEventDispatcher, onMount } from 'svelte';
-  import type { GameResult, SimulationMode } from '../lib/types';
+  import type { GameResult } from '../lib/types';
 
   export let result: GameResult;
   export let speed = 50;
-  export let mode: SimulationMode = 'manual';
 
   let currentUser = 0;
   let currentOpponent = 0;
@@ -19,6 +18,7 @@
 
   async function animateTo(userTarget: number, opponentTarget: number) {
     while (!cancelled && !skipped && (currentUser < userTarget || currentOpponent < opponentTarget)) {
+      while (!cancelled && !skipped && paused) await wait(35);
       if (currentUser < userTarget) currentUser += 1;
       if (currentOpponent < opponentTarget) currentOpponent += 1;
       await wait(speed);
@@ -35,9 +35,15 @@
     dispatch('complete');
   }
 
-  export function resumeQuarter() {
+  export function resumeAnimation() {
     paused = false;
     dispatch('resume');
+  }
+
+  export function pauseAnimation() {
+    if (completed) return;
+    paused = true;
+    dispatch('pause', activeQuarter + 1);
   }
 
   export function skipAnimation() {
@@ -57,12 +63,7 @@
         await animateTo(userTarget, opponentTarget);
         if (cancelled || skipped) return;
 
-        if (index < result.quarters.length - 1 && mode === 'manual') {
-          paused = true;
-          dispatch('pause', index + 1);
-          while (!cancelled && !skipped && paused && mode === 'manual') await wait(35);
-          paused = false;
-        } else if (index < result.quarters.length - 1) {
+        if (index < result.quarters.length - 1) {
           await wait(Math.max(220, speed * 4));
         }
       }
@@ -76,7 +77,7 @@
 <div class="animated-scoreboard" aria-live="polite">
   <div><small>SEU TIME</small><strong>{currentUser}</strong></div>
   <div class="center">
-    <span>{completed ? 'FINAL' : paused ? `FIM Q${activeQuarter + 1}` : `Q${activeQuarter + 1}`}</span>
+    <span>{completed ? 'FINAL' : paused ? `PAUSADO · Q${activeQuarter + 1}` : `Q${activeQuarter + 1}`}</span>
     <div class="quarters">
       {#each result.quarters as quarter, index}
         <i class:active={index === activeQuarter && !completed} class:done={index < activeQuarter || completed} title={`Q${index + 1}: ${quarter.user}-${quarter.opponent}`}>Q{index + 1}</i>
@@ -87,6 +88,6 @@
 </div>
 
 <style>
-  .animated-scoreboard { display: grid; grid-template-columns: 1fr auto 1fr; gap: 1rem; align-items: center; min-height: 12rem; padding: 1.2rem; text-align: center; background: radial-gradient(circle, rgba(240,118,54,.12), transparent 55%), #070a11; border: 1px solid var(--line); border-radius: 1rem; }.animated-scoreboard > div { display: grid; gap: .35rem; } small { color: var(--muted); font: 800 .7rem/1 var(--font-display); letter-spacing: .08em; } strong { color: var(--cream); font: 900 clamp(3.5rem, 10vw, 7rem)/1 var(--font-display); font-variant-numeric: tabular-nums; }.center > span { color: var(--orange); font: 900 1.2rem/1 var(--font-display); }.quarters { display: flex; gap: .3rem; }.quarters i { display: grid; place-content: center; width: 2rem; aspect-ratio: 1; color: var(--muted); border: 1px solid var(--line); border-radius: 50%; font: 800 .65rem/1 var(--font-display); font-style: normal; }.quarters i.active { color: var(--bg); background: var(--orange); border-color: var(--orange); transform: scale(1.12); }.quarters i.done { color: var(--bg); background: var(--mint); border-color: var(--mint); }
+  .animated-scoreboard { display: grid; grid-template-columns: 1fr auto 1fr; gap: 1rem; align-items: center; min-height: clamp(9rem, 28vh, 12rem); padding: 1rem; text-align: center; background: radial-gradient(circle, rgba(240,118,54,.12), transparent 55%), #070a11; border: 1px solid var(--line); border-radius: 1rem; }.animated-scoreboard > div { display: grid; gap: .35rem; } small { color: var(--muted); font: 800 .7rem/1 var(--font-display); letter-spacing: .08em; } strong { color: var(--cream); font: 900 clamp(3.2rem, 9vw, 6rem)/1 var(--font-display); font-variant-numeric: tabular-nums; }.center > span { color: var(--orange); font: 900 1rem/1 var(--font-display); }.quarters { display: flex; gap: .3rem; }.quarters i { display: grid; place-content: center; width: 2rem; aspect-ratio: 1; color: var(--muted); border: 1px solid var(--line); border-radius: 50%; font: 800 .65rem/1 var(--font-display); font-style: normal; }.quarters i.active { color: var(--bg); background: var(--orange); border-color: var(--orange); transform: scale(1.12); }.quarters i.done { color: var(--bg); background: var(--mint); border-color: var(--mint); }
   @media (max-width: 560px) { .animated-scoreboard { grid-template-columns: 1fr 1fr; }.center { grid-column: 1 / -1; grid-row: 2; }.quarters { justify-content: center; } }
 </style>

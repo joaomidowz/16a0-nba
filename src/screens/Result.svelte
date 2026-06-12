@@ -1,11 +1,12 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import RunSummary from '../components/RunSummary.svelte';
-  import type { RunSetup, RunSummary as Summary, SeriesResult, SimulationMode, SimulationSpeed } from '../lib/types';
+  import type { Player, RunSetup, RunSummary as Summary, SeriesResult, SimulationMode, SimulationSpeed } from '../lib/types';
 
   export let setup: RunSetup;
   export let series: SeriesResult[];
   export let summary: Summary;
+  export let roster: Player[];
   export let simulationMode: SimulationMode;
   export let simulationSpeed: SimulationSpeed;
   let summaryElement: HTMLElement;
@@ -29,8 +30,8 @@
 </script>
 
 <main class="shell page result-page">
-  <header class="page-header"><div><span class="eyebrow">RUN COMPLETE · {simulationMode === 'automatic' ? 'AUTOMÁTICA' : `MANUAL ${simulationSpeed}MS`}</span><h1>Resultado da campanha</h1><p>Compartilhe o seed e a configuração para desafiar outra pessoa na mesma run.</p></div></header>
-  <div bind:this={summaryElement}><RunSummary {setup} {series} {summary} /></div>
+  <header class="page-header result-heading"><div><span class="eyebrow">RUN COMPLETE · {simulationMode === 'automatic' ? 'AUTOMÁTICA' : `MANUAL ${simulationSpeed}MS`}</span><h1>Resultado da campanha</h1><p>Abra cada rodada para comparar os jogadores e as estatísticas dos adversários.</p></div></header>
+  <div bind:this={summaryElement}><RunSummary {setup} {series} {summary} {roster} /></div>
   <div class="share-actions">
     <button class="primary" type="button" on:click={generateImage}>Gerar imagem</button>
     <button class="secondary" type="button" on:click={copyLink}>Copiar link</button>
@@ -38,3 +39,8 @@
   </div>
   <p class="feedback" aria-live="polite">{feedback}</p>
 </main>
+
+<style>
+  .result-page { max-width: 1040px; padding-top: 2rem; }.result-heading { margin-bottom: 1rem; }.result-heading h1 { font-size: clamp(2.2rem, 6vw, 4rem); }.share-actions { margin-top: .8rem; }.feedback { min-height: 1.2rem; margin: .4rem 0; color: var(--mint); }
+  @media (min-width: 900px) and (min-height: 720px) { .result-page { padding-bottom: 1rem; } }
+</style>
