@@ -22,10 +22,15 @@ npm run validate
 - dataset carregado sob demanda
 - draft sequencial com uma equipe por vez, pular, voltar e resumo parcial
 - seis escolhas vindas de seis equipes diferentes
-- confirmacao de PG, SG, SF, PF, C e sexto homem
+- mini-quadra persistente com vagas livres, preenchidas e recomendadas
+- atribuicao explicita de PG, SG, SF, PF, C ou sexto homem
+- posicoes primarias e adjacentes com opcoes incompativeis desabilitadas
+- remocao, troca, desfazer e sugestao automatica por posicao
 - atributos medios e habilidades especiais
 - simulacao automatica da run completa ou manual jogo a jogo
 - velocidade lenta, normal ou rapida
+- controles persistentes para trocar modo e velocidade durante a partida
+- pausa manual ao fim de cada quarto e botao para pular a animacao
 - quatro series em melhor de sete
 - placar animado por quarto e box score revelado apenas no fim do jogo
 - recompensas entre series

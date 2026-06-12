@@ -7,13 +7,16 @@
   import SimulationSetup from './screens/SimulationSetup.svelte';
   import { applyReward, createRunSetup, simulateSeries, summarizeRun } from './lib/game';
   import type { Locale } from './lib/i18n';
-  import type { Dataset, GameMode, Player, RunSetup, Screen, SeriesResult, SimulationMode, SimulationSpeed } from './lib/types';
+  import type { Dataset, GameMode, Lineup, Player, RunSetup, Screen, SeriesResult, SimulationMode, SimulationSpeed } from './lib/types';
+
+  const emptyLineup = (): Lineup => ({ PG: null, SG: null, SF: null, PF: null, C: null, Six: null });
 
   let screen: Screen = 'home';
   let locale: Locale = 'pt';
   let dataset: Dataset | null = null;
   let setup: RunSetup | null = null;
   let roster: Player[] = [];
+  let draftLineup: Lineup = emptyLineup();
   let seriesResults: SeriesResult[] = [];
   let currentSeries: SeriesResult | null = null;
   let simulationMode: SimulationMode = 'manual';
@@ -42,6 +45,7 @@
     const seed = suppliedSeed ?? makeSeed(mode);
     setup = createRunSetup(loaded, seed, mode);
     roster = [];
+    draftLineup = emptyLineup();
     seriesResults = [];
     currentSeries = null;
     const url = new URL(window.location.href);
@@ -60,8 +64,12 @@
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  function confirmRoster(players: Player[]) {
-    roster = players.map((player) => ({ ...player }));
+  function confirmLineup(lineup: Lineup) {
+    draftLineup = { ...lineup };
+    roster = ['PG', 'SG', 'SF', 'PF', 'C', 'Six']
+      .map((slot) => lineup[slot as keyof Lineup])
+      .filter((player): player is Player => Boolean(player))
+      .map((player) => ({ ...player }));
     seriesResults = [];
     screen = 'simulation-setup';
   }
@@ -74,29 +82,26 @@
     url.searchParams.set('speed', String(speed));
     history.replaceState({}, '', url);
 
-    if (mode === 'automatic') simulateAutomaticRun();
-    else {
-      seriesResults = [];
-      playSeries(0);
-    }
+    seriesResults = [];
+    playSeries(0);
   }
 
-  function simulateAutomaticRun() {
-    if (!dataset || !setup) return;
-    let automaticRoster = roster.map((player) => ({ ...player }));
-    const results: SeriesResult[] = [];
-    for (let index = 0; index < setup.opponents.length; index += 1) {
-      const result = simulateSeries(automaticRoster, dataset, setup.opponents[index], setup.seed, index);
-      results.push(result);
-      if (!result.won) break;
-      const defeatedPlayers = dataset.players.filter((player) => player.teamId === result.opponent.id);
-      automaticRoster = applyReward(automaticRoster, defeatedPlayers, 'training');
+  function updateSimulationConfig(mode: SimulationMode, speed: SimulationSpeed) {
+    simulationMode = mode;
+    simulationSpeed = speed;
+    const url = new URL(window.location.href);
+    url.searchParams.set('auto', mode === 'automatic' ? '1' : '0');
+    url.searchParams.set('speed', String(speed));
+    history.replaceState({}, '', url);
+  }
+
+  function automaticContinue() {
+    if (!currentSeries || !setup) return;
+    if (!currentSeries.won || seriesResults.length === setup.opponents.length) {
+      showResult();
+      return;
     }
-    roster = automaticRoster;
-    seriesResults = results;
-    currentSeries = results.at(-1) ?? null;
-    screen = 'result';
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    takeReward('training');
   }
 
   function takeReward(reward: 'swap' | 'training' | 'defense') {
@@ -118,6 +123,7 @@
     history.replaceState({}, '', url);
     setup = null;
     roster = [];
+    draftLineup = emptyLineup();
     seriesResults = [];
     currentSeries = null;
     simulationMode = 'manual';
@@ -132,7 +138,7 @@
     const automatic = params.get('auto');
     const speed = Number(params.get('speed'));
     if (automatic === '1' || automatic === '0') simulationMode = automatic === '1' ? 'automatic' : 'manual';
-    if ([25, 50, 90].includes(speed)) simulationSpeed = speed as SimulationSpeed;
+    if (speed >= 25 && speed <= 500) simulationSpeed = speed;
     if (seed && mode && ['random', 'champions', 'underdog', 'daily'].includes(mode)) startRun(mode, seed);
   });
 </script>
@@ -151,12 +157,12 @@
   {:else if screen === 'home'}
     <Home {locale} on:start={(event) => startRun(event.detail.mode)} />
   {:else if screen === 'draft' && dataset && setup}
-    <Draft {dataset} {setup} initialRoster={roster} on:confirm={(event) => confirmRoster(event.detail)} on:back={restart} />
+    <Draft {dataset} {setup} initialLineup={draftLineup} on:confirm={(event) => confirmLineup(event.detail)} on:back={restart} />
   {:else if screen === 'simulation-setup'}
     <SimulationSetup {roster} initialMode={simulationMode} initialSpeed={simulationSpeed} on:start={(event) => startSimulation(event.detail.mode, event.detail.speed)} on:back={() => screen = 'draft'} />
   {:else if screen === 'game' && currentSeries && setup}
     {#key currentSeries.opponent.id}
-      <Game series={currentSeries} round={seriesResults.length} speed={simulationSpeed} isFinalRound={seriesResults.length === setup.opponents.length} on:reward={(event) => takeReward(event.detail)} on:finish={showResult} />
+      <Game series={currentSeries} round={seriesResults.length} mode={simulationMode} speed={simulationSpeed} isFinalRound={seriesResults.length === setup.opponents.length} on:config={(event) => updateSimulationConfig(event.detail.mode, event.detail.speed)} on:autoContinue={automaticContinue} on:reward={(event) => takeReward(event.detail)} on:finish={showResult} />
     {/key}
   {:else if screen === 'result' && setup && summary}
     <Result {setup} series={seriesResults} {summary} {simulationMode} {simulationSpeed} on:restart={restart} />

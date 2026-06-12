@@ -18,7 +18,7 @@
 
   <section class="simulation-grid">
     <button type="button" class:active={mode === 'automatic'} on:click={() => mode = 'automatic'}>
-      <span>AUTO</span><strong>Simulação automática</strong><small>Executa todas as séries e abre diretamente o resumo completo da campanha.</small>
+      <span>AUTO</span><strong>Simulação automática</strong><small>Exibe os jogos e avança sozinho entre quartos, partidas e séries.</small>
     </button>
     <button type="button" class:active={mode === 'manual'} on:click={() => mode = 'manual'}>
       <span>LIVE</span><strong>Simulação manual</strong><small>Acompanhe um jogo por vez, com o placar avançando quarto a quarto.</small>
@@ -29,7 +29,7 @@
     <section class="speed-panel">
       <div><span class="eyebrow">VELOCIDADE</span><h2>Ritmo da animação</h2></div>
       <div class="speed-options">
-        {#each [{ value: 90, label: 'Lenta' }, { value: 50, label: 'Normal' }, { value: 25, label: 'Rápida' }] as option}
+        {#each [{ value: 150, label: 'Lenta' }, { value: 75, label: 'Normal' }, { value: 25, label: 'Rápida' }] as option}
           <button type="button" class:active={speed === option.value} on:click={() => speed = option.value as SimulationSpeed}>{option.label}<small>{option.value} ms</small></button>
         {/each}
       </div>

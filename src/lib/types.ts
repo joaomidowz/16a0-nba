@@ -1,8 +1,9 @@
 export type Position = 'PG' | 'SG' | 'SF' | 'PF' | 'C';
+export type LineupSlot = Position | 'Six';
 export type Tier = 'S' | 'A' | 'B';
 export type GameMode = 'random' | 'champions' | 'underdog' | 'daily';
 export type SimulationMode = 'automatic' | 'manual';
-export type SimulationSpeed = 25 | 50 | 90;
+export type SimulationSpeed = number;
 export type Screen = 'home' | 'draft' | 'simulation-setup' | 'game' | 'result';
 
 export interface Team {
@@ -26,6 +27,8 @@ export interface Player {
   iq: number;
   special: string;
 }
+
+export type Lineup = Record<LineupSlot, Player | null>;
 
 export interface Dataset {
   teams: Team[];
